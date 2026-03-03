@@ -22,7 +22,6 @@ struct_message myData;
 
 void send_command(int relay, bool state)
 {
-  // Set values to send
   struct_message myData;
   myData.a = relay;
   myData.b = state;
@@ -49,7 +48,7 @@ void OnDataSent(const esp_now_recv_info_t *info, esp_now_send_status_t status)
     for (int i = 15; i >= 0; i--)
     {
       digitalWrite(SRCLK_Pin, LOW);
-      digitalWrite(SER_Pin, LOW); // 
+      digitalWrite(SER_Pin, LOW); //
       digitalWrite(SRCLK_Pin, HIGH);
     }
     digitalWrite(RCLK_Pin, HIGH);
@@ -60,24 +59,22 @@ void OnDataSent(const esp_now_recv_info_t *info, esp_now_send_status_t status)
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len)
 {
   memcpy(&myData, incomingData, sizeof(myData));
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-  Serial.print("Зона: ");
-  Serial.println(myData.a);
-  Serial.print("Состояние: ");
-  Serial.println(myData.b);
-  Serial.println();
+  Serial.printf("Зона: %d \n", myData.a);
+  Serial.printf("Состояние: %s \n", myData.b ? "включена" : "выключена");
 
-  digitalWrite(RCLK_Pin, LOW);
-  registers[myData.a] = myData.b;
-  for (int i = 15; i >= 0; i--)
+  if (myData.a >= 0 || myData.a <= 15)
   {
-    digitalWrite(SRCLK_Pin, LOW);
-    int val = registers[i];
-    digitalWrite(SER_Pin, val);
-    digitalWrite(SRCLK_Pin, HIGH);
+    digitalWrite(RCLK_Pin, LOW);
+    registers[myData.a] = myData.b;
+    for (int i = 15; i >= 0; i--)
+    {
+      digitalWrite(SRCLK_Pin, LOW);
+      int val = registers[i];
+      digitalWrite(SER_Pin, val);
+      digitalWrite(SRCLK_Pin, HIGH);
+    }
+    digitalWrite(RCLK_Pin, HIGH);
   }
-  digitalWrite(RCLK_Pin, HIGH);
 }
 
 void setup()
@@ -127,7 +124,7 @@ void setup()
 
 void loop()
 {
-  if (millis() - ping_timer < 5000)
+  if (millis() - ping_timer < 1000)
     return;
   send_command(0, false);
   ping_timer = millis();
