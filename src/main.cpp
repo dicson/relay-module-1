@@ -1,6 +1,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include "elegantota.h"
 
 // Variables for 74HC595 code
 #define SER_Pin 14         // Serial Input pin on 74HC595 No 1 (74HC595 Pin 14). Otherwise known as DS
@@ -12,6 +13,7 @@ boolean registers[16];                                             // Zero-index
 uint8_t broadcastAddress[] = {0x98, 0x88, 0xe0, 0x04, 0xe2, 0x48}; // 98:88:e0:04:e2:48  экран
 esp_now_peer_info_t peerInfo;
 uint32_t ping_timer;
+extern boolean update;
 // Must match the sender structure
 typedef struct struct_message
 {
@@ -75,6 +77,11 @@ void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, in
     }
     digitalWrite(RCLK_Pin, HIGH);
   }
+  if (myData.a == 255)
+  {
+    update = true;
+    Serial.println("ota setup");
+  }
 }
 
 void setup()
@@ -124,8 +131,10 @@ void setup()
 
 void loop()
 {
-  if (millis() - ping_timer < 1000)
-    return;
-  send_command(0, false);
-  ping_timer = millis();
+  if (millis() - ping_timer > 1000)
+  {
+    send_command(0, false);
+    ping_timer = millis();
+  }
+  ota_loop();
 }
