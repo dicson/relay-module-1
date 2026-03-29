@@ -47,9 +47,9 @@ void ota_setup(void)
 {
     if (!WiFi.softAP(ssid, password))
     {
-        Serial.print(".");
-        while (1)
-            ;
+        Serial.println("WiFi SoftAP Failed! Restarting...");
+        delay(2000);
+        ESP.restart();
     }
 
     Serial.println("");

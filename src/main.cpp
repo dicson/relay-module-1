@@ -9,32 +9,28 @@
 #define SRCLK_Pin 13       // Storage Register Clock Pin on both 74HC595s (74HC595 Pin 11). Otherwise known as SH_CP
 #define outout_enablePin 5 // Output Enable pin on both 74HC595s (74HC595 Pin 13). Must be pulled LOW to enable the outputs
 
-boolean registers[16];                                             // Zero-indexed array (0-15) which holds the state of the 16 relays
-uint8_t broadcastAddress[] = {0x98, 0x88, 0xe0, 0x04, 0xe2, 0x48}; // 98:88:e0:04:e2:48  экран
-esp_now_peer_info_t peerInfo;
-uint32_t ping_timer;
-extern boolean update;
-// Must match the sender structure
 typedef struct struct_message
 {
   int a;
   bool b;
 } struct_message;
+
 struct_message myData;
+boolean registers[16];                                             // Zero-indexed array (0-15) which holds the state of the 16 relays
+uint8_t broadcastAddress[] = {0x98, 0x88, 0xe0, 0x04, 0xe2, 0x48}; // 98:88:e0:04:e2:48  экран
+esp_now_peer_info_t peerInfo;
+uint32_t ping_timer;
+extern boolean update;
 
 void send_command(int relay, bool state)
 {
-  struct_message myData;
-  myData.a = relay;
-  myData.b = state;
+  struct_message msg;
+  msg.a = relay;
+  msg.b = state;
   // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&msg, sizeof(msg));
 
-  if (result == ESP_OK)
-  {
-    // Serial.println("Sent with success");
-  }
-  else
+  if (result != ESP_OK)
   {
     Serial.println("Error sending the data");
   }
@@ -42,15 +38,20 @@ void send_command(int relay, bool state)
 
 void OnDataSent(const esp_now_recv_info_t *info, esp_now_send_status_t status)
 {
-  const char *Message = status == ESP_NOW_SEND_SUCCESS ? "ok" : " - не выполнено";
-  Serial.println(Message);
-  if (status != ESP_NOW_SEND_SUCCESS)
+  if (status == ESP_NOW_SEND_SUCCESS)
   {
+    Serial.println("ok");
+  }
+  else
+  {
+    Serial.println(" - не выполнено (сброс выходов)");
+    // Если связь потеряна, сбрасываем всё для безопасности
     digitalWrite(RCLK_Pin, LOW);
     for (int i = 15; i >= 0; i--)
     {
+      registers[i] = LOW; // ОБЯЗАТЕЛЬНО обновляем состояние в памяти
       digitalWrite(SRCLK_Pin, LOW);
-      digitalWrite(SER_Pin, LOW); //
+      digitalWrite(SER_Pin, LOW);
       digitalWrite(SRCLK_Pin, HIGH);
     }
     digitalWrite(RCLK_Pin, HIGH);
@@ -61,26 +62,26 @@ void OnDataSent(const esp_now_recv_info_t *info, esp_now_send_status_t status)
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len)
 {
   memcpy(&myData, incomingData, sizeof(myData));
-  Serial.printf("Зона: %d \n", myData.a);
-  Serial.printf("Состояние: %s \n", myData.b ? "включена" : "выключена");
-
-  if (myData.a >= 0 || myData.a <= 15)
+  
+  // ИСПРАВЛЕНО: используем && и проверяем ID реле
+  if (myData.a >= 0 && myData.a <= 15)
   {
+    Serial.printf("Зона: %d, Состояние: %s\n", myData.a, myData.b ? "вкл" : "выкл");
+    
     digitalWrite(RCLK_Pin, LOW);
     registers[myData.a] = myData.b;
     for (int i = 15; i >= 0; i--)
     {
       digitalWrite(SRCLK_Pin, LOW);
-      int val = registers[i];
-      digitalWrite(SER_Pin, val);
+      digitalWrite(SER_Pin, registers[i]);
       digitalWrite(SRCLK_Pin, HIGH);
     }
     digitalWrite(RCLK_Pin, HIGH);
   }
-  if (myData.a == 255)
+  else if (myData.a == 255)
   {
     update = true;
-    Serial.println("ota setup");
+    Serial.println("OTA mode requested");
   }
 }
 
