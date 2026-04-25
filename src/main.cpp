@@ -62,12 +62,10 @@ void OnDataSent(const esp_now_recv_info_t *info, esp_now_send_status_t status)
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len)
 {
   memcpy(&myData, incomingData, sizeof(myData));
-  
   // ИСПРАВЛЕНО: используем && и проверяем ID реле
   if (myData.a >= 0 && myData.a <= 15)
   {
     Serial.printf("Зона: %d, Состояние: %s\n", myData.a, myData.b ? "вкл" : "выкл");
-    
     digitalWrite(RCLK_Pin, LOW);
     registers[myData.a] = myData.b;
     for (int i = 15; i >= 0; i--)
@@ -98,8 +96,6 @@ void setup()
   digitalWrite(outout_enablePin, LOW);
   // Initialize Serial Monitor
   Serial.begin(115200);
-  // delay (10000);
-
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   WiFi.enableAP(false);
@@ -110,18 +106,13 @@ void setup()
     Serial.println("Error initializing ESP-NOW");
     return;
   }
-  // Once ESPNow is successfully Init, we will register for recv CB to
-  // get recv packer info
-  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv));
-  // Once ESPNow is successfully Init, we will register for Send CB to
-  // get the status of Trasnmitted packet
-  esp_now_register_send_cb(esp_now_send_cb_t(OnDataSent));
 
+  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv));
+  esp_now_register_send_cb(esp_now_send_cb_t(OnDataSent));
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-
   // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK)
   {
