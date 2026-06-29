@@ -3,6 +3,8 @@
 #include <esp_wifi.h>
 #include "elegantota.h"
 
+constexpr uint8_t relay1Address[] = {0xa4, 0xf0, 0x0f, 0x8d, 0x02, 0xec}; // 5v relay
+constexpr uint8_t relay2Address[] = {0x70, 0x4b, 0xca, 0x8f, 0xaf, 0x28}; // 70:4b:ca:8f:af:28
 // Variables for 74HC595 code
 #define SER_Pin 14         // Serial Input pin on 74HC595 No 1 (74HC595 Pin 14). Otherwise known as DS
 #define RCLK_Pin 12        // Shift Register Clock Pin on both 74HC595s (74HC595 Pin 12). Otherwise known as ST_CP
@@ -40,11 +42,11 @@ void OnDataSent(const esp_now_recv_info_t *info, esp_now_send_status_t status)
 {
   if (status == ESP_NOW_SEND_SUCCESS)
   {
-    Serial.println("ok");
+    Serial.println("ping отправлен");
   }
   else
   {
-    Serial.println(" - не выполнено (сброс выходов)");
+    Serial.println("связь потеряна (сброс выходов)");
     // Если связь потеряна, сбрасываем всё для безопасности
     digitalWrite(RCLK_Pin, LOW);
     for (int i = 15; i >= 0; i--)
@@ -106,7 +108,7 @@ void setup()
     Serial.println("Error initializing ESP-NOW");
     return;
   }
-
+  esp_wifi_set_mac(WIFI_IF_STA, &relay1Address[0]);
   esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv));
   esp_now_register_send_cb(esp_now_send_cb_t(OnDataSent));
   // Register peer
